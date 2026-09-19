@@ -22,7 +22,7 @@ jobs:
       - name: Extract AI Assistant project
         run: |
           mkdir app
-          unzip -q AI_Assistant_v5_PlayReady.zip -d app
+          unzip -q AI_Assistant_v5_PlayReady_FIXED.zip -d app
 
       - name: Create Android project files
         working-directory: app
