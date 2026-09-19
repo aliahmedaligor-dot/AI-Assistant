@@ -1,0 +1,44 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Extract AI Assistant project
+        run: |
+          mkdir app
+          unzip -q AI_Assistant_v5_PlayReady.zip -d app
+
+      - name: Create Android project files
+        working-directory: app
+        run: |
+          flutter create --platforms=android .
+
+      - name: Install packages
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Assistant-APK
+          path: app/build/app/outputs/flutter-apk/app-release.apk
