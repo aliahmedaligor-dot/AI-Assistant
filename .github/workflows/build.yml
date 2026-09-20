@@ -22,7 +22,7 @@ jobs:
       - name: Extract AI Assistant project
         run: |
           mkdir app
-          unzip -q AI_Assistant_Gemini.zip -d app
+          unzip -q AI_Assistant_Gemini_FIXED.zip -d app
 
       - name: Create Android project files
         working-directory: app
