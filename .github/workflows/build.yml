@@ -28,10 +28,12 @@ jobs:
         working-directory: app
         run: |
           flutter create --platforms=android .
+
       - name: Enable Android internet
         working-directory: app
         run: |
           sed -i '/<manifest /a\    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
+
       - name: Install packages
         working-directory: app
         run: flutter pub get
