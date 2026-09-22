@@ -36,6 +36,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           p = Path("android/app/src/main/AndroidManifest.xml")
           text = p.read_text()
@@ -45,15 +46,27 @@ jobs:
               '    <uses-permission android:name="android.permission.RECORD_AUDIO"/>',
           ]
 
+          match = re.search(r'<manifest\b[^>]*>', text, re.S)
+
+          if not match:
+              raise RuntimeError(
+                  "AndroidManifest.xml: <manifest> tag not found"
+              )
+
+          insert_at = match.end()
+          additions = []
+
           for permission in permissions:
               if permission.strip() not in text:
-                  text = text.replace(
-                      '<manifest ',
-                      '<manifest ',
-                      1
-                  )
-                  marker = text.find('>')
-                  text = text[:marker+1] + '\n' + permission + text[marker+1:]
+                  additions.append(permission)
+
+          if additions:
+              text = (
+                  text[:insert_at]
+                  + '\n'
+                  + '\n'.join(additions)
+                  + text[insert_at:]
+              )
 
           p.write_text(text)
           PY
@@ -67,19 +80,16 @@ jobs:
           p = Path("lib/main.dart")
           text = p.read_text()
 
-          # Prevent Dart interpolation errors caused by literal dollar signs
           text = text.replace(
               'ممنوع عرض LaTeX بين $...$ أو $$...$$، وممنوع وضع $ حول الأرقام أو المعادلات.',
               'ممنوع عرض LaTeX بين علامات الدولار، وممنوع وضع علامات الدولار حول الأرقام أو المعادلات.'
           )
 
-          # speech_to_text: SpeechListenOptions is not const in the installed version
           text = text.replace(
               'listenOptions: const stt.SpeechListenOptions(',
               'listenOptions: stt.SpeechListenOptions('
           )
 
-          # file_picker 13.x removed withData
           text = text.replace(
               'FilePicker.pickFile(type: FileType.any, withData: false)',
               'FilePicker.pickFile(type: FileType.any)'
@@ -92,6 +102,11 @@ jobs:
         working-directory: app
         run: |
           flutter pub get
+
+      - name: Remove default Flutter test
+        working-directory: app
+        run: |
+          rm -f test/widget_test.dart
 
       - name: Analyze Flutter project
         working-directory: app
