@@ -11,16 +11,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
       - name: Extract AI Assistant project
         run: |
+          rm -rf app
           mkdir app
           unzip -q AI_Assistant_Gemini_API_IN_APP.zip -d app
 
@@ -29,21 +31,91 @@ jobs:
         run: |
           flutter create --platforms=android .
 
-      - name: Enable Android internet
+      - name: Fix Android permissions
         working-directory: app
         run: |
-          sed -i '/<manifest /a\    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Install packages
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          text = p.read_text()
+
+          permissions = [
+              '    <uses-permission android:name="android.permission.INTERNET"/>',
+              '    <uses-permission android:name="android.permission.RECORD_AUDIO"/>',
+          ]
+
+          for permission in permissions:
+              if permission.strip() not in text:
+                  text = text.replace(
+                      '<manifest ',
+                      '<manifest ',
+                      1
+                  )
+                  marker = text.find('>')
+                  text = text[:marker+1] + '\n' + permission + text[marker+1:]
+
+          p.write_text(text)
+          PY
+
+      - name: Fix Dart compatibility issues
         working-directory: app
-        run: flutter pub get
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("lib/main.dart")
+          text = p.read_text()
+
+          # Prevent Dart interpolation errors caused by literal dollar signs
+          text = text.replace(
+              'ممنوع عرض LaTeX بين $...$ أو $$...$$، وممنوع وضع $ حول الأرقام أو المعادلات.',
+              'ممنوع عرض LaTeX بين علامات الدولار، وممنوع وضع علامات الدولار حول الأرقام أو المعادلات.'
+          )
+
+          # speech_to_text: SpeechListenOptions is not const in the installed version
+          text = text.replace(
+              'listenOptions: const stt.SpeechListenOptions(',
+              'listenOptions: stt.SpeechListenOptions('
+          )
+
+          # file_picker 13.x removed withData
+          text = text.replace(
+              'FilePicker.pickFile(type: FileType.any, withData: false)',
+              'FilePicker.pickFile(type: FileType.any)'
+          )
+
+          p.write_text(text)
+          PY
+
+      - name: Install dependencies
+        working-directory: app
+        run: |
+          flutter pub get
+
+      - name: Analyze Flutter project
+        working-directory: app
+        run: |
+          flutter analyze
 
       - name: Build APK
         working-directory: app
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release
+
+      - name: Build Android App Bundle
+        working-directory: app
+        run: |
+          flutter build appbundle --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: AI-Assistant-APK
           path: app/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Assistant-AAB
+          path: app/build/app/outputs/bundle/release/app-release.aab
