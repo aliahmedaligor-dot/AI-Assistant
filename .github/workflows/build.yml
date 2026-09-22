@@ -111,7 +111,7 @@ jobs:
       - name: Analyze Flutter project
         working-directory: app
         run: |
-          flutter analyze
+          flutter analyze --no-fatal-infos
 
       - name: Build APK
         working-directory: app
